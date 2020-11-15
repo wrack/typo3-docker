@@ -17,6 +17,7 @@ RUN wget "https://extensions.typo3.org/extension/download/typo3_console/${TYPO3_
 COPY config/AdditionalConfiguration.php /docker/config/AdditionalConfiguration.php
 COPY docker-typo3-entrypoint.sh /docker/docker-typo3-entrypoint.sh
 COPY wait-for-it.sh /docker/wait-for-it.sh
+COPY database-connection.php /docker/database-connection.php
 
 RUN chmod +x /docker/docker-typo3-entrypoint.sh /docker/wait-for-it.sh && \ 
     echo "*/5 * * * * /usr/local/bin/php /var/www/html/typo3/sysext/core/bin/typo3 scheduler:run" > /var/spool/cron/crontabs/www-data && \

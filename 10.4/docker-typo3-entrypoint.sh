@@ -26,6 +26,33 @@ file_env() {
 	unset "$fileVar"
 }
 
+# While mysql is initiating root_user,databses... 
+# the mysql server shuts down multiple times.
+# This function checks every 5 seconds if the database is reachable.
+# Returns 1 if database is reachable three times in a row
+# Return 0 if ten checks passed without connection
+checkDatatbaseConnection() {
+  local passed=0
+  for i in {1..10}; do
+    echo "Testing if typo3 database is set up ["$i"]"
+    /docker/wait-for-it.sh "${TYPO3_DB_HOST}:${TYPO3_DB_PORT}" -- echo "Database connection is ready"
+    eval "php /docker/database-connection.php '"${TYPO3_DB_HOST}"' '"${TYPO3_DB_USERNAME}"' '"${TYPO3_DB_PASSWORD}"' '"${TYPO3_DB_NAME}"' '"${TYPO3_DB_PORT}"'"
+    if [ $? -eq 0 ]; then
+      (( passed+=1 ))
+      echo "Success: Database connection could be established"
+    else 
+      (( passed=0 ))
+      echo "Error: Database connection could not be established"
+    fi
+    
+    if [ $passed -gt 2 ]; then
+      return 1
+    fi
+    sleep 5
+  done
+  return 0
+}
+
 if [ ! -d /var/www/html/ ]; then
     mkdir -p /var/www/html/
 fi
@@ -82,7 +109,11 @@ if [ $SETUP_TYPO3 == true ] && [ ! -f /var/www/html/typo3conf/LocalConfiguration
         exit 1
     fi
 
-    /docker/wait-for-it.sh "${TYPO3_DB_HOST}:${TYPO3_DB_PORT}" -- echo "Database is ready"
+    if checkDatatbaseConnection; then
+      echo >&2 "error: something went wrong while connecting to the mysql database"
+      echo >&2 "  Please check your database credentials"
+      exit 1
+    fi
 
     eval "/var/www/html/typo3cms install:setup --no-interaction \
         --database-user-name='${TYPO3_DB_USERNAME}' \
